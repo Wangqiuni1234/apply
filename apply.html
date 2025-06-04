@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>小美客服-贝贝</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "微软雅黑", sans-serif;
+      background-color: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .header {
+      background-color: #1890ff;
+      padding: 16px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    .header small {
+      font-size: 13px;
+      color: #e6f7ff;
+      display: block;
+    }
+
+    .content {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 16px;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .card ul {
+      list-style: none;
+    }
+
+    .card ul li {
+      padding: 6px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .chat-area {
+      flex: 1;
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      overflow-y: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .message {
+      max-width: 100%;
+      margin: 10px 0;
+      clear: both;
+    }
+
+    .user-message {
+      float: right;
+      color: #e6f7ff;
+      border-radius: 12px 12px 0 12px;
+      padding: 8px 12px;
+    }
+
+    .bot-message {
+      float: left;
+      background: dodgerblue;
+      border-radius: 12px 12px 12px 0;
+      padding: 8px 12px;
+    }
+
+    .footer {
+      background-color: #fff;
+      border-top: 1px solid #e8e8e8;
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .footer-text {
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+    }
+
+    .record-btn {
+      background: #f5f5f5;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 20px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      transition: background 0.3s;
+    }
+
+    .record-btn:hover {
+      background: #e6f7ff;
+    }
+
+    audio {
+      width: 200px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>小美客服-贝贝</h1>
+    <small>小美智能客服中心</small>
+  </div>
+
+  <div class="content">
+    <div class="card">
+      <div class="card-title">你想要咨询的是以下问题吗？</div>
+      <ul>
+        <li>版本区别</li>
+        <li>微信</li>
+        <li>注册入口</li>
+        <li>价格</li>
+        <li>下载地址</li>
+      </ul>
+    </div>
+
+    <div id="chatArea" class="chat-area">
+
+    </div>
+  </div>
+
+  <div class="footer">
+    <button id="recordBtn" class="record-btn">🎤 按住说话</button>
+    <div class="footer-text">
+      小美全场景智能客服系统：抗攻击、https防劫持，支持消息撤回、已读未读、视频发送，智能机器人自动回复
+    </div>
+  </div>
+
+
+  <script>
+
+    let mediaRecorder, chunks = [];
+    const recordBtn = document.getElementById("recordBtn");
+    const chatArea = document.getElementById("chatArea");
+
+    // 添加触摸事件支持
+    recordBtn.addEventListener("mousedown", startRecording);
+    recordBtn.addEventListener("touchstart", startRecording);
+    recordBtn.addEventListener("mouseup", stopRecording);
+    recordBtn.addEventListener("touchend", stopRecording);
+
+    function createMessageElement(isUser, content) {
+      const messageDiv = document.createElement("div");
+      messageDiv.className = "message";
+
+      const bubble = document.createElement("div");
+      bubble.className = isUser ? "user-message" : "bot-message";
+      bubble.innerHTML = content;
+
+      messageDiv.appendChild(bubble);
+      return messageDiv;
+    }
+
+    function startRecording(e) {
+      e.preventDefault();
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          chunks = [];
+
+          mediaRecorder.ondataavailable = e => chunks.push(e.data);
+
+          mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(track => track.stop());  // 添加这行
+            const blob = new Blob(chunks, { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(blob);
+
+
+            // 显示用户语音
+            const userContent = `
+              <audio controls>
+                <source src="${audioUrl}" type="audio/wav">
+                您的浏览器不支持音频播放
+              </audio>
+            `;
+            chatArea.appendChild(createMessageElement(true, userContent));
+
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            // 上传语音到后端
+            const formData = new FormData();
+            formData.append("audio", blob, "voice.wav");
+
+            try {
+
+              const response = await fetch("http://127.0.0.1:5000/predict_emotion", {
+                method: "POST",
+                body: formData,
+                mode:"cors"
+              })
+
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `服务器响应失败，状态码：${response.status}`);
+              }
+
+              const data = await response.json();
+              const emotion = data.emotion;
+
+              // 根据情绪返回不同的客服回复
+              let botContent = "";
+              if (emotion === "angry") {
+                botContent = "系统识别到用户情绪为愤怒（正在为您转接人工客服……）";
+              } else {
+                botContent = "继续为您服务";
+              }
+
+              chatArea.appendChild(createMessageElement(false, botContent));
+              chatArea.scrollTop = chatArea.scrollHeight;
+
+            } catch (error) {
+              console.error("上传失败", error);
+              chatArea.appendChild(createMessageElement(false, "系统识别失败，请重试。"));
+            }
+        };
+
+
+          mediaRecorder.start();
+          recordBtn.style.background = "#e6f7ff";
+        })
+        .catch(err => {
+          console.error("麦克风访问失败:", err);
+          alert("需要麦克风访问权限才能录音");
+        });
+    }
+
+    function stopRecording(e) {
+      e.preventDefault();
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        recordBtn.style.background = "#f5f5f5";
+      }
+    }
+  </script>
+
+
+</body>
+</html>
+
+
